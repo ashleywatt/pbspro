@@ -43,6 +43,7 @@ import logging
 import traceback
 import math
 from subprocess import Popen, PIPE
+from datetime import datetime
 
 from ptl.utils.pbs_dshutils import DshUtils
 from ptl.lib.pbs_testlib import BatchUtils, Server, NODE, JOB, SET, EQ
@@ -221,27 +222,29 @@ class PBSLogUtils(object):
     du = DshUtils()
 
     @classmethod
-    def convert_date_time(cls, datetime=None, fmt="%m/%d/%Y %H:%M:%S"):
+    def convert_date_time(cls, datetime_str=None, fmt="%m/%d/%Y %H:%M:%S.%f"):
         """
         convert a date time string of the form given by fmt into
-        number of seconds since epoch
+        seconds since epoch
 
-        :param datetime: the datetime string to convert
-        :type datetime: str or None
+        :param datetime_str: the datetime string to convert
+        :type datetime_str: str or None
         :param fmt: Format to which datetime is to be converted
         :type fmt: str
         :returns: None if conversion fails
         """
-        if datetime is None:
+    
+        if datetime_str is None:
             return None
 
         try:
-            t = time.strptime(datetime, fmt)
+            t = datetime.strptime(datetime_str, fmt)
         except:
-            cls.logger.debug("could not convert date time: " + str(datetime))
+            cls.logger.debug("could not convert date time: " + str(datetime_str))
             return None
-
-        tm = int(time.mktime(t))
+        
+        epoch = datetime.utcfromtimestamp(0)
+        tm = (t - epoch).total_seconds()
         return tm
 
     def get_num_lines(self, log, hostname=None, sudo=False):
@@ -340,12 +343,12 @@ class PBSLogUtils(object):
             for l in lines:
                 if starttime is not None:
                     # l[:19] captures the log record time
-                    tm = self.convert_date_time(l[:19])
+                    tm = self.convert_date_time(l[:26])
                     if tm is None or tm < starttime:
                         continue
                 if endtime is not None:
                     # l[:19] captures the log record time
-                    tm = self.convert_date_time(l[:19])
+                    tm = self.convert_date_time(l[:26])
                     if tm is None or tm > endtime:
                         continue
                 if ((regexp and re.search(msg, l)) or
