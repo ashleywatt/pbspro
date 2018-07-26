@@ -222,7 +222,7 @@ class PBSLogUtils(object):
     du = DshUtils()
 
     @classmethod
-    def convert_date_time(cls, datetime_str=None, fmt="%m/%d/%Y %H:%M:%S.%f"):
+    def convert_date_time(cls, datetime_str=None, fmt="%m/%d/%Y %H:%M:%S"):
         """
         convert a date time string of the form given by fmt into
         seconds since epoch
@@ -236,17 +236,26 @@ class PBSLogUtils(object):
     
         if datetime_str is None:
             return None
-
-        try:
-            t = datetime.strptime(datetime_str, fmt)
-        except:
-            cls.logger.debug("could not convert date time: " + str(datetime_str))
-            return None
         
-        epoch = datetime.utcfromtimestamp(0)
-        tm = (t - epoch).total_seconds()
+        if (fmt == "%m/%d/%Y %H:%M:%S.%f"):
+            try:
+                t = datetime.strptime(datetime_str, fmt)
+            except:
+                cls.logger.debug("could not convert date time: " + str(datetime_str))
+                return None
+            epoch = datetime.utcfromtimestamp(0)
+            tm = (t - epoch).total_seconds()
+        
+        else:
+            try:
+                t = time.strptime(datetime_str, fmt)
+            except:
+                cls.logger.debug("could not convert date time: " + str(datetime_str))
+                return None
+            tm = int(time.mktime(t))
+            
         return tm
-
+            
     def get_num_lines(self, log, hostname=None, sudo=False):
         """
         Get the number of lines of particular log
@@ -342,13 +351,19 @@ class PBSLogUtils(object):
         if lines:
             for l in lines:
                 if starttime is not None:
-                    # l[:19] captures the log record time
-                    tm = self.convert_date_time(l[:26])
+                    # l[:26] captures the log record time with microsecond logging
+                    tm = self.convert_date_time(l[:26], fmt="%m/%d/%Y %H:%M:%S.%f")
+                    if tm is None:
+                        # l[:19] captures the log record time without microsecond logging
+                        tm = self.convert_date_time(l[:19], fmt="%m/%d/%Y %H:%M:%S")
                     if tm is None or tm < starttime:
                         continue
                 if endtime is not None:
-                    # l[:19] captures the log record time
-                    tm = self.convert_date_time(l[:26])
+                    # l[:26] captures the log record time with microsecond logging
+                    tm = self.convert_date_time(l[:26], fmt="%m/%d/%Y %H:%M:%S.%f")
+                    if tm is None:
+                        # l[:19] captures the log record time without microsecond logging
+                        tm = self.convert_date_time(l[:19], fmt="%m/%d/%Y %H:%M:%S")
                     if tm is None or tm > endtime:
                         continue
                 if ((regexp and re.search(msg, l)) or
